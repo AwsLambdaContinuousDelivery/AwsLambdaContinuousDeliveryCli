@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
-import sys, os
+import sys, os, subprocess
 import argparse
+import inspect
 from os.path import abspath, join
 from pathlib import Path
 from typing import List
+
+import awslambdacontinuousdelivery.cli.templates.python.pipeline as pipeline
 
 prod = "PROD"
 config = "config"
@@ -20,8 +23,33 @@ folders = [ src
           , unit
           ]
 
+def create_pipeline_template(stages: List[str], name = None, init = False):
+    folder_location = os.getcwd()
+    if name is not None and init is True:
+        folder_location = join(folder_location, name, "pipeline")
+    source_code = inspect.getsourcelines(pipeline)[0]
+    stages = list(filter(lambda x: x != "PROD", stages))
+    source_code[17] = "  stages = " + str(stages).replace("'", "\"") + "\n"
+    filename = join(folder_location, "pipeline.py")
+    os.mkdir(folder_location)
+    Path(filename).touch()
+    with open(filename, "w") as output:
+        for line in source_code:
+            output.write(str(line))
 
-def create_default(stages: List[str], name:str):
+    jsonfile = join(folder_location, "stack.json")
+    Path(jsonfile).touch()
+    proc = subprocess.Popen( ['python3', filename ],
+                             stdout = subprocess.PIPE,
+                             stderr=subprocess.STDOUT
+    )
+    template =  proc.communicate()[0]
+    with open(jsonfile, "w") as output:
+        output.write(template.decode("utf-8"))
+    return
+
+
+def create_default(stages: List[str], name: str):
     if prod not in stages: stages.append(prod)
     root_folder = join(os.getcwd(), name)
     os.mkdir(root_folder)
@@ -103,24 +131,26 @@ def create_folders(stages: List[str], root_folder: str):
     return
 
 
-def pipeline_source_code(stages: List[str]) -> str:
-    pass
-
-
 def main(args = None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--name", help = "Function Name", required = True)
-    parser.add_argument("--init", help = "create default folder structure", required = False, action = "store_true")
-    parser.add_argument("--stages", nargs = "+", help="Set flag and add all stages EXCEPT PROD, if no flag is set, then there will be just a PROD stage", required = False)
+    parser.add_argument("--name", "-n",  help = "Function Name", required = False)
+    parser.add_argument("--pipeline", "-p", help = "Create Pipeline", required = False, action = "store_true") 
+    parser.add_argument("--init", "-i", help = "create default folder structure", required = False, action = "store_true")
+    parser.add_argument("--stages", "-s", nargs = "+", help="Set flag and add all stages EXCEPT PROD, if no flag is set, then there will be just a PROD stage", required = False)
     
     args = parser.parse_args()
     if not args.stages:
         args.stages = []
 
     if args.init:
-        print("Starting creating the structure")
-        create_default(args.stages, args.name)
+        if args.name is None:
+            print("--name, -n for --init neccessary")
+            sys.exit()
+        else:    
+            create_default(args.stages, args.name)
 
+    if args.pipeline:
+        create_pipeline_template(args.stages, args.name, args.init)
 
 if __name__ == "__main__":
     main()
