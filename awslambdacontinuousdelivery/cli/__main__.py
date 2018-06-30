@@ -7,7 +7,7 @@ from os.path import abspath, join
 from pathlib import Path
 from typing import List
 
-import awslambdacontinuousdelivery.cli.templates.python.pipeline as pipeline
+
 
 prod = "PROD"
 config = "config"
@@ -23,7 +23,39 @@ folders = [ src
           , unit
           ]
 
+packages = [ "https://github.com/AwsLambdaContinuousDelivery/pyAwsLambdaContinuousDeliveryIntegrationTests.git",
+             "https://github.com/AwsLambdaContinuousDelivery/pyAwsLambdaContinuousDeliveryBuild.git",
+             "https://github.com/AwsLambdaContinuousDelivery/pyAwsLambdaContinuousDeliveryUnittest.git",
+             "https://github.com/AwsLambdaContinuousDelivery/AwsLambdaContinuousDeliveryDeploy.git",
+             "https://github.com/AwsLambdaContinuousDelivery/AwsLambdaContinuousDeliveryNotifications.git",
+             "https://github.com/AwsLambdaContinuousDelivery/AwsLambdaContinuousDeliverySourceGitHub.git",
+             "https://github.com/AwsLambdaContinuousDelivery/AwsLambdaContinuousDeliverySourceCodeCommit.git",
+             "https://github.com/AwsLambdaContinuousDelivery/AwsLambdaContinuousDeliveryTools.git"
+]
+
+
+def install(package: str):
+    subprocess.call(["sudo", sys.executable, "-m", "pip", "install", package])
+    return
+
+
+def update():
+    url = "https://github.com/AwsLambdaContinuousDelivery/AwsLambdaContinuousDeliveryCli/tarball/master"
+    subprocess.call(["sudo", sys.executable, "-m", "pip", "install", url])
+    return
+
+
+def provision():
+    pkgs = map(lambda x: x[:-4], packages)
+    pkgs = map(lambda x: x + "/tarball/master", pkgs)
+    for pkg in list(pkgs):
+        install(pkg)
+    print("Done Provisioning")
+    return
+
+
 def create_pipeline_template(stages: List[str], name = None, init = False):
+    import awslambdacontinuousdelivery.cli.templates.python.pipeline as pipeline
     folder_location = os.getcwd()
     if name is not None and init is True:
         folder_location = join(folder_location, name, "pipeline")
@@ -122,6 +154,7 @@ def create_requirements(root_folder: str):
         ).touch()
     return
 
+
 def create_folders(stages: List[str], root_folder: str):
     stages = map(lambda s: abspath(join(root_folder, config, s)), stages)
     folders_ = map(lambda f: abspath(join(root_folder, f)), folders)
@@ -133,12 +166,26 @@ def create_folders(stages: List[str], root_folder: str):
 
 def main(args = None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--name", "-n",  help = "Function Name", required = False)
-    parser.add_argument("--pipeline", "-p", help = "Create Pipeline", required = False, action = "store_true") 
-    parser.add_argument("--init", "-i", help = "create default folder structure", required = False, action = "store_true")
+    parser.add_argument("--init", "-i", help = "Create default folder structure. Must additionally use `--name`.", required = False, action = "store_true")
+    parser.add_argument("--name", "-n",  help = "Function/Folder name. The cli will create a folder with this name and place all files inside.", required = False)
     parser.add_argument("--stages", "-s", nargs = "+", help="Set flag and add all stages EXCEPT PROD, if no flag is set, then there will be just a PROD stage", required = False)
-    
+
+    parser.add_argument("--pipeline", "-p", help = "Create Pipeline template. If run with `--init` it will create a separate `pipeline` folder. Otherwise, it will simply place a template pipeline from where the command is run.", required = False, action = "store_true") 
+
+    parser.add_argument("--provision", help = "Install/Update AwsLambda CI/CD tools libraries/packages (it might be necessary to run this command with `sudo`", required = False, action = "store_true", default = False)
+
+    parser.add_argument("--update", help = "Update this CLI", required = False, action = "store_true", default = False)
+
+
     args = parser.parse_args()
+
+    if args.update:
+        update()
+        sys.exit()
+
+    if args.provision:
+        provision()
+
     if not args.stages:
         args.stages = []
 
@@ -151,6 +198,8 @@ def main(args = None):
 
     if args.pipeline:
         create_pipeline_template(args.stages, args.name, args.init)
+    return
+
 
 if __name__ == "__main__":
     main()
