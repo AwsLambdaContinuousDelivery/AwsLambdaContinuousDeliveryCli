@@ -1,6 +1,7 @@
 # Command Line Interface
 
 ## Install
+
 ### Download and Install CLI
 ```
 sudo pip3 install https://github.com/AwsLambdaContinuousDelivery/AwsLambdaContinuousDeliveryCli/tarball/master
@@ -12,5 +13,5 @@ awslambdacicd --provision
 
 ## Usage
 ```
-awslambdacicd --init --name mapContactSkyscanner --stages Alpha Beta --pipeline
+awslambdacicd --init --name Example --stages Alpha Beta Gamma --pipeline
 ```
